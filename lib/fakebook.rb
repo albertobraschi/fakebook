@@ -103,9 +103,9 @@ class Fakebook
         temp = nil
         if node.is_a? HTML::Tag
           if node.name=='fb:name'
-            temp = "[USER #{node.attributes['uid']}]"
+            temp = "[USER #{node.attributes['uid']}]" unless node.closing==:close
           elsif node.name=='fb:profile-pic'
-            temp = "[PIC #{node.attributes['uid']}]"
+            temp = "[PIC #{node.attributes['uid']}]" unless node.closing==:close
           elsif node.name=='fb:title'
             title = tokenizer.next
           elsif node.name=='fb:if-is-user'
