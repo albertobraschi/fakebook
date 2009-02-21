@@ -54,7 +54,7 @@ class Fakebook
       res.write %Q(This is the install URL. <a href="?added=1">Set fb_sig_added to 1.</a>)
       @fb_params[:added] = 1 if req.params['added']=='1'
     else
-      response_body = request(path, req.params)
+      response_body = request(path, req)
       if response_body =~ /fb:redirect url=\"(.*)\"/
         res.status = 302
         res["Location"] = $1
@@ -67,23 +67,22 @@ class Fakebook
   end
   
   # Takes a path and optional params; returns the parsed and re-written response body.
-  def request(path, params={})
+  def request(path, req)
     url = URI.parse(@callback + path.gsub(Regexp.new('^/' + @canvas + '/'), ''))
     path_and_query_string = "#{url.path}?#{url.query}"
-    request_body = sign(params).map{ |a| "#{a.first}=#{a.last}" }.join('&')
-    response = Net::HTTP.new(url.host, url.port).post(path_and_query_string, request_body)
+    response = Net::HTTP.new(url.host, url.port).post(path_and_query_string, sign(req))
     parse_fbml(response.body)
   end
 
   private
     
-    def sign(params)
-      params_to_sign = normalize(@fb_params || {}).merge(:time => Time.now.to_f)
+    def sign(request)
+      params_to_sign = normalize(@fb_params || {}).merge(:time => Time.now.to_f, :request_method => request.request_method)
       raw_string = params_to_sign.map{ |pair| pair.join('=') }.sort.join + @secret
       signature = Digest::MD5.hexdigest(raw_string)
-      params_to_sign.each { |k,v| params["fb_sig_" + k.to_s] = v.to_s }
-      params['fb_sig'] = signature
-      normalize(params)
+      params_to_sign.each { |k,v| request.params["fb_sig_" + k.to_s] = v.to_s }
+      params = normalize(request.params.merge('fb_sig' => signature))
+      params.map{ |a| "#{a.first}=#{a.last}" }.join('&')
     end
 
     def normalize(params)
